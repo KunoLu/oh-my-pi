@@ -4,7 +4,13 @@
 
 ### Added
 
-- Added `PI_LINK_SCHEME` and `PI_LINK_HOST` environment variables for host-qualified OSC 8 file links in remote terminal sessions ([#15497](https://github.com/can1357/oh-my-pi/issues/15497)).
+- Added `PI_LINK_SCHEME` and `PI_LINK_HOST` environment variables for host-qualified OSC 8 file links in remote terminal sessions ([#15497](https://github.com/can1357/oh-my-pi/issues/15497), [#15855](https://github.com/can1357/oh-my-pi/pull/15855) by [@KunoLu](https://github.com/KunoLu)).
+
+### Fixed
+
+- Long lines in native (Tern) `read`, `write`, and code-cell source now wrap instead of scrolling each block sideways ([#15823](https://github.com/can1357/oh-my-pi/issues/15823)).
+- Fixed long text pastes taking seconds to land in terminals that deliver a paste one key at a time, such as JetBrains' terminal on Windows; omp no longer writes to the terminal for every pasted key ([#15757](https://github.com/can1357/oh-my-pi/issues/15757))
+- Fixed Shift+Enter submitting the prompt and Ctrl+Enter inserting a newline in WSL under Windows Terminal 1.24 and earlier, conhost, and other ConPTY hosts without kitty keyboard support; Shift+Enter now inserts a newline and Ctrl+Enter sends a follow-up, as on native Windows.
 
 ## [18.11.0] - 2026-10-14
 
