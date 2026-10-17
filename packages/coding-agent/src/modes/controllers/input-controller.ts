@@ -4,6 +4,7 @@ import type { ImageContent } from "@oh-my-pi/pi-ai";
 import {
 	type AutocompleteProvider,
 	type Component,
+	emergencyTerminalRestore,
 	matchesKey,
 	parseSgrMouse,
 	type PasteOptions,
@@ -737,6 +738,9 @@ export class InputController {
 
 		this.ctx.editor.onChange = (text: string) => {
 			this.#draftText = text;
+			// Typing signals an imminent turn; refresh the API connection now so
+			// the handshake overlaps composition instead of delaying the send.
+			if (text) this.ctx.session.prewarmModelConnection();
 			const wasBashMode = this.ctx.isBashMode;
 			const wasPythonMode = this.ctx.isPythonMode;
 			const trimmed = text.trimStart();
@@ -960,8 +964,9 @@ export class InputController {
 
 			// Focused subagent session: the editor is a plain chat box for it.
 			// Everything below (slash/bash/python, loop,
-			// compaction queueing) is main-session-only.
-			if (this.ctx.focusedAgentId) {
+			// compaction queueing) is main-session-only. A tool-approval dialog
+			// owning the composer is the main session's, so its draft steers main.
+			if (this.ctx.focusedAgentId && !this.ctx.approvalOwnsComposer) {
 				await this.#submitToFocusedSession(text, "steer");
 				return;
 			}
@@ -1504,7 +1509,11 @@ export class InputController {
 		if (this.ctx.isShuttingDown) {
 			// Route through postmortem: this hard-abort can fire while an
 			// extension-load guard window is open, where raw process.exit is a
-			// throwing ExtensionExitError stub (#11789).
+			// throwing ExtensionExitError stub (#11789). exitProcess skips the
+			// postmortem cleanups, so hand the terminal back first: shutdown() has
+			// not reached ui.stop() yet, and a kitty keyboard frame left pushed
+			// makes the parent shell receive Ctrl+C as `CSI 99;5u` (prints `9;5u`).
+			emergencyTerminalRestore();
 			postmortem.exitProcess(130); // 128 + SIGINT
 		}
 
@@ -1868,7 +1877,7 @@ export class InputController {
 		if (!text && !images) return;
 
 		// Focused subagent session: follow-ups go to it; non-chat input is gated.
-		if (this.ctx.focusedAgentId) {
+		if (this.ctx.focusedAgentId && !this.ctx.approvalOwnsComposer) {
 			await this.#submitToFocusedSession(text, "followUp");
 			return;
 		}
@@ -2617,6 +2626,7 @@ export class InputController {
 					cwd: manager.getCwd(),
 					sessionId: manager.getSessionId(),
 					sessionFile: manager.getSessionFile(),
+					seanceSourceArtifactsDir: manager.getSeanceSourceArtifactsDir() ?? undefined,
 				};
 			},
 			keybindings: this.ctx.keybindings,
